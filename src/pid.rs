@@ -23,7 +23,8 @@ impl PIController {
     /// Update the PI controller, returning the new output value.
     pub fn update(&mut self, measurement: I16F16, setpoint: I16F16, dt: I16F16) -> I16F16 {
         let error = measurement - setpoint;
-        self.k_p * error + self.integral.update(error, dt)
+        self.k_p
+            .saturating_mul(error + self.integral.update(error, dt))
     }
 }
 
