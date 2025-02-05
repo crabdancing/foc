@@ -68,7 +68,7 @@ struct IntegralComponent {
 
 impl IntegralComponent {
     fn update(&mut self, error: I16F16, dt: I16F16) -> I16F16 {
-        self.integral += self.k_i * error * dt;
+        self.integral += self.k_i.saturating_mul(error.saturating_mul(dt));
         self.integral
     }
 }
