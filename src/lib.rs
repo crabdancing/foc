@@ -4,6 +4,7 @@
 
 use core::marker::PhantomData;
 
+use defmt::info;
 use fixed::types::I16F16;
 
 pub mod park_clarke;
@@ -55,8 +56,10 @@ impl<Modulator: pwm::Modulation, const PWM_RESOLUTION: u16> Foc<Modulator, PWM_R
         desired_torque: I16F16,
         dt: I16F16,
     ) -> [u16; 3] {
+        info!("start update");
         let (sin_angle, cos_angle) = cordic::sin_cos(angle);
 
+        info!("start clarke transform");
         // Clarke transform
         let orthogonal_current =
             park_clarke::clarke(park_clarke::ThreePhaseBalancedReferenceFrame {
@@ -64,17 +67,21 @@ impl<Modulator: pwm::Modulation, const PWM_RESOLUTION: u16> Foc<Modulator, PWM_R
                 b: currents[1],
             });
 
+        info!("start park transform");
         // Park transform
         let rotating_current = park_clarke::park(cos_angle, sin_angle, orthogonal_current);
 
+        info!("current pi controller v_d");
         // Current PI controllers
         let v_d = self
             .flux_current_controller
             .update(rotating_current.d, I16F16::ZERO, dt);
+        info!("current pi controller v_q");
         let v_q = self
             .torque_current_controller
             .update(rotating_current.q, desired_torque, dt);
 
+        info!("inverse park transform");
         // Inverse Park transform
         let orthogonal_voltage = park_clarke::inverse_park(
             cos_angle,
@@ -82,6 +89,7 @@ impl<Modulator: pwm::Modulation, const PWM_RESOLUTION: u16> Foc<Modulator, PWM_R
             park_clarke::RotatingReferenceFrame { d: v_d, q: v_q },
         );
 
+        info!("modulate");
         // Modulate the result to PWM values
         Modulator::as_compare_value::<PWM_RESOLUTION>(orthogonal_voltage)
     }
